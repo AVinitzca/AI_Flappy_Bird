@@ -10,7 +10,7 @@
 	</head>
 <body>
 
-<canvas id="canvas" width="576" height="1024"></canvas>
+<canvas id="canvas" width="576" height="800"></canvas>
 
 <script>
 	var canvas = document.getElementById("canvas");
@@ -45,6 +45,7 @@
 	{
 		flappyBird.update(elapsedTime);
 		background.update(elapsedTime);
+		wall.update(elapsedTime)
 	}
 			
 	function draw()
@@ -112,26 +113,34 @@
 	
 	function Wall(height)
 	{
+
+
 		if(Wall.topSprite == undefined)
 		{
 			var pipeTopImage = new Image();
 			pipeTopImage.src = imgPath +  'pipetop.png';
-			Wall.topSprite = new Sprite(pipeTopImage, pipeTopImage.width, pipeTopImage.height);
+			Wall.topSprite = new Sprite(pipeTopImage, 72, 400);
 			
 			pipeLengthImage = new Image();
-			pipeLengthImage.src = imgPath + 'pipelength.png';
-			Wall.lengthSprite = new Sprite(pipeLengthImage, pipeLengthImage.width, pipeLengthImage.height);			
+			pipeLengthImage.src = imgPath + 'pipeLength.png';
+			Wall.lengthSprite = new Sprite(pipeLengthImage, 72, 500);			
 		}
 		
 		this.x = 100.0;
-		this.y = 100.0;
+		this.y = 0;
 		this.angle = 0.0;
 	}
 		
 	Wall.prototype.draw = function(context)
 	{
-		Wall.topSprite.draw(context, this.x, this.y);
-		Wall.lengthSprite.draw(context, this.x, this.y);
+		Wall.topSprite.draw(context, this.x +5, 700);
+		Wall.lengthSprite.draw(context, this.x +5, 0);
+
+	}
+
+	Wall.prototype.update = function(elapsedTime)
+	{
+		this.x = this.x - 1
 	}
 	
 	
