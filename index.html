@@ -107,6 +107,70 @@
 	}
 	
 	
+	function OrientedBoundingBox(x, y, width, height, angle)
+	{
+		this.halfWidth = width * 0.5;
+		this.halfHeight = height * 0.5;
+		
+		this.x = x;
+		this.y = y;
+		
+		this.angle = angle;
+	}
+	
+	OrientedBoundingBox.prototype.calculatePoints = function()	
+	{
+		var top = y + this.halfWidth;
+		var bottom = y - this.halfWidth;
+		var right = x + this.halfWidth;
+		var left = x - this.halfWidth;
+		this.points = 
+		[
+			[top, left],
+			[top, right],
+			[bottom, left],
+			[bottom, right],
+		];
+	}
+	
+	OrientedBoundingBox.prototype.rotate = function()	
+	{
+		var cosA = cos(this.angle);
+		var sinA = sin(this.angle);
+		
+		this.points.forEach(function(point)
+		{
+			point[0] = point[0] * cosA - point[1] * sinA;
+			point[1] = point[0] * sinA + point[1] * cosA;
+		});		
+	}
+	
+	OrientedBoundingBox.prototype.update = function(x, y, angle)	
+	{
+		this.angle = angle;
+		this.calculatePoints();
+		this.rotate();
+	}
+	
+	OrientedBoundingBox.prototype.collidesWith = function(aabb)			
+	{
+		for (var point in this.points)
+		{
+			if(point[0] > aabb.min[0] && point[1] > aabb.min[0] && point[1] < aabb.max[0] && point[1] < aabb.max[1])
+				return true;
+		}
+		return false;
+	}
+	
+	
+	function AxisAlignedBoundingBox(x, y, width, height)
+	{
+		var halfWidth = width * 0.5;
+		var halfHeight = height * 0.5;
+		this.min = [x - halfWidth, y - halfHeight];
+		this.max = [x + halfWidth, y + halfHeight];
+	}
+	
 	
 	
 	
