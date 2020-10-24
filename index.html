@@ -1,1 +1,189 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>AI Flappy Bird</title>
+		<style>
+			* { padding: 0; margin: 0; }
+			canvas { background: #eee; display: block; margin: 0 auto; }
+		</style>		
+	</head>
+<body>
 
+<canvas id="canvas" width="576" height="1024"></canvas>
+
+<script>
+	var canvas = document.getElementById("canvas");
+	var context = canvas.getContext("2d");
+	
+	var imgPath = 'img/';
+	
+	context.imageSmoothingEnabled = false;
+	
+	
+	var flappyBird = new FlappyBird();
+	var background = new Background();
+	var wall = new Wall(10.0);
+	
+	var delta = 0.0;
+	var last = 0.0;
+	
+	function loop(timestamp) 
+	{	
+		delta = timestamp - last;
+		last = timestamp;		
+		
+		update(delta);
+		
+		draw();
+		
+		// Redraw
+		requestAnimationFrame(loop);
+	}
+	
+	function update(elapsedTime)
+	{
+		flappyBird.update(elapsedTime);
+		background.update(elapsedTime);
+	}
+			
+	function draw()
+	{	
+	
+		context.setTransform(1,0,0,1,0,0);
+	
+		// Clear the screen
+		context.clearRect(0, 0, canvas.width, canvas.height);
+			
+		context.translate(-flappyBird.x, 0);
+				
+		background.draw(context);
+		
+		flappyBird.draw(context);	
+		
+		wall.draw(context);
+		
+		
+	}
+	
+	
+	canvas.addEventListener("click", function( event ) {
+		flappyBird.flap();
+	}, false);
+  
+	function FlappyBird()
+	{		
+		var flappyBirdImage = new Image();
+		flappyBirdImage.src = imgPath + 'bird.png';	
+		this.sprite = new Sprite(flappyBirdImage, 85, 60);
+		
+		this.x = 0.0;
+		this.y = canvas.height / 2.0;
+		this.angle = 0.0;
+		this.speedX = 2.0;
+		
+		this.speedY = -5.0;
+		this.velocityY = this.speedY;
+		this.accelerationY = 0.078;
+	}
+	
+	FlappyBird.prototype.update = function(elapsedTime)
+	{	
+		this.x += this.speedX;		
+		this.y += this.velocityY;		
+		this.velocityY += this.accelerationY;
+		
+		this.angle = this.velocityY * 0.1;
+	}
+	
+	FlappyBird.prototype.flap = function()
+	{
+		flappyBird.velocityY = flappyBird.speedY;
+	}
+	
+	FlappyBird.prototype.draw = function(context)
+	{
+		this.sprite.draw(context, this.x + 50.0, this.y, this.angle);
+	}
+	
+	
+	
+	
+	
+	function Wall(height)
+	{
+		if(Wall.topSprite == undefined)
+		{
+			var pipeTopImage = new Image();
+			pipeTopImage.src = imgPath +  'pipetop.png';
+			Wall.topSprite = new Sprite(pipeTopImage, pipeTopImage.width, pipeTopImage.height);
+			
+			pipeLengthImage = new Image();
+			pipeLengthImage.src = imgPath + 'pipelength.png';
+			Wall.lengthSprite = new Sprite(pipeLengthImage, pipeLengthImage.width, pipeLengthImage.height);			
+		}
+		
+		this.x = 100.0;
+		this.y = 100.0;
+		this.angle = 0.0;
+	}
+		
+	Wall.prototype.draw = function(context)
+	{
+		Wall.topSprite.draw(context, this.x, this.y);
+		Wall.lengthSprite.draw(context, this.x, this.y);
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	function Background()
+	{
+		var backgroundImage = new Image();
+		backgroundImage.src = imgPath + 'background.png';	
+		this.sprite = new Sprite(backgroundImage, canvas.width, canvas.height);
+		
+		this.x = 0.0;
+		this.y = canvas.height / 2.0;
+		this.angle = 0.0;	
+	}
+	
+	Background.prototype.update = function()
+	{
+		this.x = flappyBird.x + canvas.width * 0.5;
+	}
+	
+	Background.prototype.draw = function(context)
+	{
+		this.sprite.draw(context, this.x, this.y, this.angle);
+	}
+	
+	
+	function Sprite(image, width, height)
+	{
+		this.image = image;
+		this.width = width;
+		this.height = height;
+		this.halfWidth = width * 0.5;
+		this.halfHeight = height * 0.5;
+	}	
+		
+	Sprite.prototype.draw = function(context, x, y, angle)
+	{
+		context.save();
+		context.translate(x, y);
+		context.rotate(angle);
+		context.drawImage(this.image, -this.halfWidth, -this.halfHeight, this.width, this.height);
+		context.restore();		
+	};	
+		
+	
+	loop();
+</script>
+
+</body>
+</html>
