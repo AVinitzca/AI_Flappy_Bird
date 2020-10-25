@@ -7,6 +7,12 @@
 			* { padding: 0; margin: 0; background: #010911; }
 			canvas { background: #000; display: block; margin: 0 auto; }
 		</style>		
+		
+		<script src="config.js"></script> 
+		<script src="neuron.js"></script> 
+		<script src="network.js"></script> 
+		<script src="chromosome.js"></script> 
+		<script src="loop.js"></script> 
 	</head>
 <body>
 
@@ -180,10 +186,10 @@
 	
 	function update(elapsedTime)
 	{
-		wallA.update(elapsedTime, flappyBird);
-		wallB.update(elapsedTime, flappyBird);
+		wallA.update(elapsedTime, activeBirds[0]);
+		wallB.update(elapsedTime, activeBirds[0]);
 		
-		flappyBird.update(elapsedTime, [wallA, wallB]);
+		activeBirds.forEach((bird) => bird.update(elapsedTime, [wallA, wallB]));
 	}
 			
 	function draw()
@@ -200,10 +206,10 @@
 		// World drawing
 		// -------------
 		
-		context.translate(-flappyBird.x + 50.0, 0);
+		context.translate(-activeBirds[0].x + 50.0, 0);
 				
 		
-		flappyBird.draw(context);	
+		activeBirds.forEach((bird) => bird.draw(context));
 		
 		wallA.draw(context);
 		wallB.draw(context);		
@@ -221,11 +227,17 @@
 	}
 	
   
-	function FlappyBird()
+	function FlappyBird(chromosome)
 	{		
-		var flappyBirdImage = new Image();
-		flappyBirdImage.src = imgPath + 'bird.png';	
-		this.sprite = new Sprite(flappyBirdImage, 51, 36);
+		if(FlappyBird.flappyBirdImage == undefined)
+		{
+			FlappyBird.flappyBirdImage = new Image();
+			FlappyBird.flappyBirdImage.src = imgPath + 'bird.png';	
+			FlappyBird.sprite = new Sprite(FlappyBird.flappyBirdImage, 51, 36);
+			FlappyBird.birdCount = 0;
+		}
+		
+		this.chromosome = chromosome;		
 		
 		this.x = 0.0;
 		this.y = canvas.height / 2.0;
@@ -236,34 +248,61 @@
 		this.velocityY = this.speedY;
 		this.accelerationY = 0.078;
 		
+		FlappyBird.birdCount++;
+		
 		this.obb = new OrientedBoundingBox(this.x, this.y, 50, 25, this.angle);		
 	}
 	
 	FlappyBird.prototype.update = function(elapsedTime, walls)
 	{	
-		this.x += this.speedX;		
+		this.x += this.speedX;	
+
+		score++;		
 		this.y += this.velocityY;		
 		this.velocityY += this.accelerationY;
 		
 		this.angle = this.velocityY * 0.1;
 		this.obb.update(this.x, this.y, this.angle);
 		
+		
+		var x = this.x;
+		var firstWall = walls.find(wall => wall.x >= x);
+		
+		if(firstWall == undefined)
+			var n = 34;
+		
+		var inputs = [firstWall.randomHeight - this.y, firstWall.x - this.x];
+		var evaluate = this.chromosome.evaluate(inputs);
+		if(evaluate > 0.5)
+			this.flap();
+		
 		if(this.obb.collidesWithScenario(0, canvas.height))
-			reset();		
+			this.die();		
 			
 		for(var wallIndex in walls)			
 			if(this.obb.collidesWith(walls[wallIndex].aabbA) || this.obb.collidesWith(walls[wallIndex].aabbB))
-				reset();
+				this.die();
+		
+		
+	}
+	
+	FlappyBird.prototype.die = function()
+	{
+		this.chromosome.score = score;
+		FlappyBird.birdCount--;
+		removeA(activeBirds, this);
+		if(FlappyBird.birdCount == 0)
+			advanceLoop();
 	}
 	
 	FlappyBird.prototype.flap = function()
 	{
-		flappyBird.velocityY = flappyBird.speedY;
+		this.velocityY = this.speedY;
 	}
 	
 	FlappyBird.prototype.draw = function(context)
 	{
-		this.sprite.draw(context, this.x, this.y, this.angle);
+		FlappyBird.sprite.draw(context, this.x, this.y, this.angle);
 		this.obb.draw(context, "red");
 	}
 	
@@ -294,9 +333,9 @@
 	
 		generateRandom()
 		{			
-			var randomHeight = randomNumber(halfWallSpacing, canvas.height - halfWallSpacing);
-			this.minHeight = randomHeight - halfWallSpacing;
-			this.maxHeight = randomHeight + halfWallSpacing;
+			this.randomHeight = randomNumberSeeded(halfWallSpacing, canvas.height - halfWallSpacing);
+			this.minHeight = this.randomHeight - halfWallSpacing;
+			this.maxHeight = this.randomHeight + halfWallSpacing;
 			
 			this.aabbA = AxisAlignedBoundingBox.fromMinMax([this.x - 20, 0], [this.x + 20, this.minHeight]);
 			this.aabbB = AxisAlignedBoundingBox.fromMinMax([this.x - 20, this.maxHeight], [this.x + 20, canvas.height]);	
@@ -306,7 +345,6 @@
 		{
 			if((this.x + 50) < flappyBird.x)
 			{
-				score++;
 				this.x += canvas.width;		
 				this.generate();				
 			}
@@ -330,6 +368,16 @@
 			this.aabbA.draw(context, "red");
 			this.aabbB.draw(context, "green");			
 		}
+	}
+	
+	function randomSeeded()
+	{
+		return Math.random();
+	} 
+	
+	function randomNumberSeeded(min, max)
+	{
+		return randomSeeded() * (max - min) + min;
 	}
 	
 	function randomNumber(min, max) 
@@ -401,13 +449,28 @@
 	var imgPath = 'img/';	
 	context.imageSmoothingEnabled = false;
 	
-	var flappyBird = null;
 	var background = null;
 	var wallA = null;
 	var wallB = null;
 	var delta = 0.0;
 	var last = 0.0;
 	var score = 0;
+	var activeBirds = [];
+	
+	
+	
+	
+	var chromosomes = [];
+	for(var index = 0; index < Config.population; index++)
+	{
+		var neuron = new Neuron([(index * 2.0) / Config.population - 0.5, index * 2.0/ Config.population - 0.5]);
+		var network = new Network(neuron);
+		chromosomes.push(new Chromosome(network));
+	}
+	
+	
+	var currentLoop = new Loop(chromosomes);	
+
 	
 	Math.seed = function(s) 
 	{
@@ -418,43 +481,71 @@
 
 	function setUp()
 	{			
-		flappyBird = new FlappyBird();
 		background = new Background();
 		wallA = new Wall(canvas.width);
 		wallB = new Wall(canvas.width * 1.5);
-			// usage:
-		Math.random = Math.seed(42);
+		
+		setBirds();
+		
 		
 	}
 	
-	function reset()
+	function setBirds()
+	{		
+		for(var index = 0; index < Config.population; index++)
+		{
+			var flappy = new FlappyBird(currentLoop.chromosomes[index])
+			activeBirds.push(flappy);
+		}
+	}
+	
+	function advanceLoop()
 	{
-		// usage:
-		Math.random = Math.seed(42);
-	
-	
-		flappyBird = new FlappyBird();
 		wallA.x = canvas.width;
 		wallB.x = canvas.width * 1.5;
 		wallA.generate();
 		wallB.generate();
-		score = 0;
+		
+		currentLoop.progress();
+		currentLoop = new Loop(currentLoop.nextGeneration);
+		
+		
+		setBirds();
 	}
 	
+	function reset()
+	{
+		wallA.x = canvas.width;
+		wallB.x = canvas.width * 1.5;
+		wallA.generate();
+		wallB.generate();
+		
+	}
 	
+	function removeA(arr) 
+	{
+		var what, a = arguments, L = a.length, ax;
+		while (L > 1 && arr.length) {
+			what = a[--L];
+			while ((ax= arr.indexOf(what)) !== -1) {
+				arr.splice(ax, 1);
+			}
+		}
+		return arr;
+	}
 	
 	
 	
 	
 	canvas.addEventListener("click", function( event ) {
-		flappyBird.flap();
+		activeBirds.forEach(b => b.flap());
 	}, false);
 	
 		
 	document.body.onkeyup = function(event)
 	{
 		if(event.keyCode == 32)		
-			flappyBird.flap();
+		activeBirds.forEach(b => b.flap());
 		else if(event.key == 'j')
 			drawBounding = !drawBounding;		
 	};
