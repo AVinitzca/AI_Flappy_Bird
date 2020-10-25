@@ -453,7 +453,7 @@
 	
 	function randomSeeded()
 	{
-		return pseudoRandomGenerator();
+		return Math.random();
 	} 
 	
 	function randomNumberSeeded(min, max)
@@ -486,8 +486,7 @@
 		wallA = new Wall(canvas.width);
 		wallB = new Wall(canvas.width * 1.5);
 		
-		setBirds();
-		
+		setBirds();		
 		
 	}
 	
