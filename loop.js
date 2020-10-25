@@ -39,7 +39,7 @@ class Loop
 		var belowFilter = scores.map((score) => score % average);
 		
 		
-		var maxPassed = Config.elitism * Config.population;
+		var maxPassed = Math.floor(Config.elitism * Config.population);
 		var belowElitism = true;
 		for(var index = 0; index < Config.population && belowElitism; index++)
 		{			
@@ -72,7 +72,7 @@ class Loop
 	mutate()
 	{		
 		
-		for(var index = 0; index < Config.population; index++)
+		for(var index = Math.floor(Config.elitism * Config.population); index < Config.population; index++)
 		{
 			var chromosome = this.nextGeneration[index];
 			chromosome.mutate(Config.mutationFactor);

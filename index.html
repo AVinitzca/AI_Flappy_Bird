@@ -102,7 +102,6 @@
 				[right, bottom],
 				[right, top],
 			];
-			//this.rotatedPoints = this.originalPoints;
 		}
 		
 		rotate()
@@ -182,7 +181,14 @@
 		draw();
 		
 		// Redraw
-		requestAnimationFrame(loop);
+		
+		if(FPS == 0){
+			setZeroTimeout(function(){
+				loop(0);
+			});
+		}else{
+			requestAnimationFrame(loop);
+		}
 	}
 	
 	function update(elapsedTime)
@@ -225,6 +231,10 @@
 		context.fillText('Press "J" to show bounding areas', 10, 30);		
 		
 		context.fillText('Score: ' + activeBirds[0].score, canvas.width - 100, 30);		
+		
+		if(activeBirds[0].score > maxScore)
+			maxScore = activeBirds[0].score;
+		context.fillText('Max Score: ' + maxScore, canvas.width - 110, 50);		
 	}
 	
   
@@ -235,7 +245,6 @@
 			FlappyBird.flappyBirdImage = new Image();
 			FlappyBird.flappyBirdImage.src = imgPath + 'bird.png';	
 			FlappyBird.sprite = new Sprite(FlappyBird.flappyBirdImage, 51, 36);
-			FlappyBird.birdCount = 0;
 		}
 		
 		this.chromosome = chromosome;		
@@ -249,9 +258,7 @@
 		this.speedY = -3.5;
 		this.velocityY = this.speedY;
 		this.accelerationY = 0.078;
-		
-		FlappyBird.birdCount++;
-		
+				
 		this.obb = new OrientedBoundingBox(this.x, this.y, 50, 25, this.angle);		
 	}
 	
@@ -269,12 +276,11 @@
 		
 		var x = this.x;
 		var firstWall = walls.find(wall => wall.x >= x);
-		
-		if(firstWall == undefined)
-			var n = 34;
-		
-		var inputs = [firstWall.randomHeight - this.y, firstWall.x - this.x];
+				
+		var inputs = [(firstWall.randomHeight - this.y) / canvas.height, (firstWall.x - this.x)  / canvas.width, this.velocityY / canvas.height];
+		//var inputs = [this.y / canvas.height, firstWall.randomHeight];
 		var evaluate = this.chromosome.evaluate(inputs);
+		
 		if(evaluate > 0.5)
 			this.flap();
 		
@@ -291,9 +297,8 @@
 	FlappyBird.prototype.die = function()
 	{
 		this.chromosome.score = this.score;
-		FlappyBird.birdCount--;
 		removeA(activeBirds, this);
-		if(FlappyBird.birdCount == 0)
+		if(activeBirds.length == 0)
 			advanceLoop();
 	}
 	
@@ -440,8 +445,9 @@
 	var wallB = null;
 	var delta = 0.0;
 	var last = 0.0;
+	var maxScore = 0;
 	var activeBirds = [];
-	
+	var FPS = 1000;
 	
 	var pseudoRandomGenerator = new Math.seedrandom('1');
 	
@@ -472,7 +478,7 @@
 	for(var index = 0; index < Config.population; index++)
 	{
 		var initialValue = (index / Config.population) * 2.0 - 1.0;
-		var neuron = new Neuron([initialValue, initialValue]);
+		var neuron = new Neuron([initialValue, initialValue, initialValue]);
 		var network = new Network(neuron);
 		chromosomes.push(new Chromosome(network));
 	}
@@ -537,6 +543,8 @@
 	
 	
 	
+	var timeouts = [];
+	var messageName = "zero-timeout-message";
 	
 	canvas.addEventListener("click", function( event ) {
 		activeBirds.forEach(b => b.flap());
@@ -550,6 +558,26 @@
 		else if(event.key == 'j')
 			drawBounding = !drawBounding;		
 	};
+	
+	
+	function setZeroTimeout(fn) {
+		timeouts.push(fn);
+		window.postMessage(messageName, "*");
+	}
+
+	window.setZeroTimeout = setZeroTimeout;
+	
+	function handleMessage(event) {
+		if (event.source == window && event.data == messageName) {
+			event.stopPropagation();
+			if (timeouts.length > 0) {
+				var fn = timeouts.shift();
+				fn();
+			}
+		}
+	}
+
+	window.addEventListener("message", handleMessage, true);
 	
 	setUp();
 	loop();

@@ -27,7 +27,14 @@ class Neuron
 		var output = 0;
 		for(var index = 0; index < inputs.length; index++)
 			output += this.weights[index] * inputs[index];
-		return output;
+		return this.activation(output);
+	}
+	
+	
+	activation(input)
+	{
+		var inverse = (-input) / 1;
+		return (1 / (1 + Math.exp(inverse)));
 	}
 	
 	clone()
