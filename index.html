@@ -13,6 +13,7 @@
 		<script src="network.js"></script> 
 		<script src="chromosome.js"></script> 
 		<script src="loop.js"></script> 
+		<script src="seedrandom.js"></script>
 	</head>
 <body>
 
@@ -223,7 +224,7 @@
 		context.font = '18px serif';
 		context.fillText('Press "J" to show bounding areas', 10, 30);		
 		
-		context.fillText('Score: ' + score, canvas.width - 100, 30);		
+		context.fillText('Score: ' + activeBirds[0].score, canvas.width - 100, 30);		
 	}
 	
   
@@ -243,6 +244,7 @@
 		this.y = canvas.height / 2.0;
 		this.angle = 0.0;
 		this.speedX = 1.5;
+		this.score = 0;
 		
 		this.speedY = -3.5;
 		this.velocityY = this.speedY;
@@ -257,7 +259,7 @@
 	{	
 		this.x += this.speedX;	
 
-		score++;		
+		this.score++;		
 		this.y += this.velocityY;		
 		this.velocityY += this.accelerationY;
 		
@@ -288,7 +290,7 @@
 	
 	FlappyBird.prototype.die = function()
 	{
-		this.chromosome.score = score;
+		this.chromosome.score = this.score;
 		FlappyBird.birdCount--;
 		removeA(activeBirds, this);
 		if(FlappyBird.birdCount == 0)
@@ -370,22 +372,6 @@
 		}
 	}
 	
-	function randomSeeded()
-	{
-		return Math.random();
-	} 
-	
-	function randomNumberSeeded(min, max)
-	{
-		return randomSeeded() * (max - min) + min;
-	}
-	
-	function randomNumber(min, max) 
-	{
-		return Math.random() * (max - min) + min;
-	}
-	
-	
 	function Background()
 	{
 		var backgroundImage = new Image();
@@ -454,30 +440,45 @@
 	var wallB = null;
 	var delta = 0.0;
 	var last = 0.0;
-	var score = 0;
 	var activeBirds = [];
 	
+	
+	var pseudoRandomGenerator = new Math.seedrandom('1');
+	
+	function resetSeed()
+	{
+		pseudoRandomGenerator = new Math.seedrandom('1');
+	}
+	
+	
+	function randomSeeded()
+	{
+		return pseudoRandomGenerator();
+	} 
+	
+	function randomNumberSeeded(min, max)
+	{
+		return randomSeeded() * (max - min) + min;
+	}
+	
+	function randomNumber(min, max) 
+	{
+		return Math.random() * (max - min) + min;
+	}
 	
 	
 	
 	var chromosomes = [];
 	for(var index = 0; index < Config.population; index++)
 	{
-		var neuron = new Neuron([(index * 2.0) / Config.population - 0.5, index * 2.0/ Config.population - 0.5]);
+		var initialValue = (index / Config.population) * 2.0 - 1.0;
+		var neuron = new Neuron([initialValue, initialValue]);
 		var network = new Network(neuron);
 		chromosomes.push(new Chromosome(network));
 	}
 	
 	
 	var currentLoop = new Loop(chromosomes);	
-
-	
-	Math.seed = function(s) 
-	{
-		return function() {
-			s = Math.sin(s) * 10000; return s - Math.floor(s);
-		};
-	};
 
 	function setUp()
 	{			
@@ -501,6 +502,7 @@
 	
 	function advanceLoop()
 	{
+		resetSeed();
 		wallA.x = canvas.width;
 		wallB.x = canvas.width * 1.5;
 		wallA.generate();
@@ -519,7 +521,7 @@
 		wallB.x = canvas.width * 1.5;
 		wallA.generate();
 		wallB.generate();
-		
+		resetSeed();
 	}
 	
 	function removeA(arr) 

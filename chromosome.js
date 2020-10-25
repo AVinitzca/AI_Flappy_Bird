@@ -12,7 +12,7 @@ class Chromosome
 	
 	lerp(chromosome, factor)
 	{
-		return network.lerp(chromosome.network, factor);
+		return new Chromosome(network.lerp(chromosome.network, factor));
 	}
 	
 	clone()

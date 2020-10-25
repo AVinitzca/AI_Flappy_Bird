@@ -19,7 +19,7 @@ class Neuron
 	
 	mutate(mutationFactor)
 	{
-		this.weights.map((weight) => weight += (Math.random() * 2.0 - 1.0) * mutationFactor);
+		this.weights = this.weights.map((weight) => weight += (Math.random() * 2.0 - 1.0) * mutationFactor);
 	}
 	
 	output(inputs)
