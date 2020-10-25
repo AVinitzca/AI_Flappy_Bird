@@ -4,29 +4,166 @@
 		<meta charset="utf-8" />
 		<title>AI Flappy Bird</title>
 		<style>
-			* { padding: 0; margin: 0; }
-			canvas { background: #eee; display: block; margin: 0 auto; }
+			* { padding: 0; margin: 0; background: #010911; }
+			canvas { background: #000; display: block; margin: 0 auto; }
 		</style>		
 	</head>
 <body>
 
-<canvas id="canvas" width="576" height="800"></canvas>
+<canvas id="canvas" width="600" height="800"></canvas>
 
 <script>
-	var canvas = document.getElementById("canvas");
-	var context = canvas.getContext("2d");
+
+	class AxisAlignedBoundingBox 
+	{
+		constructor(x, y, width, height) 
+		{
+			this.halfWidth = width * 0.5;
+			this.halfHeight = height * 0.5;
+			this.min = [x - this.halfWidth, y - this.halfHeight];
+			this.max = [x + this.halfWidth, y + this.halfHeight];
+		}
+		
+		
+		updateX(x)
+		{
+			this.min[0] = x - this.halfWidth;
+			this.max[0] = x + this.halfWidth;		
+		}
+		
+		draw(context, color)
+		{	
+
+			if(!drawBounding)
+				return;		
+			context.beginPath();
+			context.lineWidth = "4";
+			context.strokeStyle = color;
+			context.rect(this.min[0], this.min[1], this.halfWidth * 2, this.halfHeight * 2);
+			context.stroke();
+		}
+
+		pointInside(point)
+		{
+			return this.min[0] <= point[0] &&
+					point[0] <= this.max[0] && 
+					this.min[1] <= point[1] && 
+					point[1] <= this.max[1];
+		}
+		
+
+		static fromMinMax(minPoint, maxPoint) 
+		{  
+			var width = maxPoint[0] - minPoint[0];
+			var height = maxPoint[1] - minPoint[1];
+			var x = (maxPoint[0] + minPoint[0]) * 0.5;
+			var y = (maxPoint[1] + minPoint[1]) * 0.5;
+			
+			var aabb = new AxisAlignedBoundingBox(x, y, width, height);
+			return aabb;
+		}
+	}
 	
-	var imgPath = 'img/';
 	
-	context.imageSmoothingEnabled = false;
+	class OrientedBoundingBox
+	{
+		constructor(x, y, width, height, angle)
+		{
+			this.halfWidth = width * 0.5;
+			this.halfHeight = height * 0.5;
+			
+			this.x = x;
+			this.y = y;
+			
+			this.angle = angle;
+			
+			this.calculatePoints();
+			this.rotate();
+		}
+		
+
+		calculatePoints()	
+		{
+			var top = - this.halfHeight;
+			var bottom = this.halfHeight;
+			var right = this.halfWidth;
+			var left = -this.halfWidth;
+			this.originalPoints = 
+			[
+				[left, top],				
+				[left, bottom],				
+				[right, bottom],
+				[right, top],
+			];
+			//this.rotatedPoints = this.originalPoints;
+		}
+		
+		rotate()
+		{
+			var cosA = Math.cos(this.angle);
+			var sinA = Math.sin(this.angle);
+			
+			this.rotatedPoints = [];
+			for(var pointIndex in this.originalPoints)
+			{
+				var point = this.originalPoints[pointIndex];
+				this.rotatedPoints.push(
+				[
+					point[0] * cosA - point[1] * sinA, 
+					point[0] * sinA + point[1] * cosA
+				]);
+			}
+			
+			var capturedX = this.x;
+			var capturedY = this.y;
+			this.rotatedPoints.forEach(function(p)
+			{
+				p[0] += capturedX;
+				p[1] += capturedY;
+			});			
+		}
+		
+		update(x, y, angle)	
+		{
+			this.x = x;
+			this.y = y;
+			this.angle = angle;
+			this.calculatePoints();
+			this.rotate();	
+		}
+		
+		collidesWith(aabb)			
+		{		
+			return this.rotatedPoints.some((point) => aabb.pointInside(point));
+		}
+		
+		collidesWithScenario(min, max)
+		{
+			for (var pointIndex in this.rotatedPoints)
+			{
+				if(this.rotatedPoints[pointIndex][1] > max || this.rotatedPoints[pointIndex][1] < min)
+					return true;
+			}
+			return false;
+		}
+		
+		draw(context, color)
+		{				
+			if(!drawBounding)
+				return;
+			context.lineWidth = '4';
+			context.strokeStyle = color;
+			context.beginPath();
+			context.moveTo(this.rotatedPoints[0][0], this.rotatedPoints[0][1]);
+			for(var index = 1; index < this.rotatedPoints.length; index++)				
+				context.lineTo(this.rotatedPoints[index][0], this.rotatedPoints[index][1]);			
+			context.closePath();
+			context.stroke();
+		}
+		
+	}
 	
 	
-	var flappyBird = new FlappyBird();
-	var background = new Background();
-	var wall = new Wall(10.0);
-	
-	var delta = 0.0;
-	var last = 0.0;
 	
 	function loop(timestamp) 
 	{	
@@ -43,58 +180,80 @@
 	
 	function update(elapsedTime)
 	{
-		flappyBird.update(elapsedTime);
-		background.update(elapsedTime);
-		wall.update(elapsedTime)
+		wallA.update(elapsedTime, flappyBird);
+		wallB.update(elapsedTime, flappyBird);
+		
+		flappyBird.update(elapsedTime, [wallA, wallB]);
 	}
 			
 	function draw()
 	{	
-	
-		context.setTransform(1,0,0,1,0,0);
-	
 		// Clear the screen
 		context.clearRect(0, 0, canvas.width, canvas.height);
-			
-		context.translate(-flappyBird.x, 0);
-				
+		
+	
+		// Camera independant
+		// -------------
+		
 		background.draw(context);
+	
+		// World drawing
+		// -------------
+		
+		context.translate(-flappyBird.x + 50.0, 0);
+				
 		
 		flappyBird.draw(context);	
 		
-		wall.draw(context);
+		wallA.draw(context);
+		wallB.draw(context);		
 		
+		context.setTransform(1,0,0,1,0,0);
 		
+		// Camera independant
+		// -------------		
+		
+		context.fillStyle = "white";
+		context.font = '18px serif';
+		context.fillText('Press "J" to show bounding areas', 10, 30);		
+		
+		context.fillText('Score: ' + score, canvas.width - 100, 30);		
 	}
 	
-	
-	canvas.addEventListener("click", function( event ) {
-		flappyBird.flap();
-	}, false);
   
 	function FlappyBird()
 	{		
 		var flappyBirdImage = new Image();
 		flappyBirdImage.src = imgPath + 'bird.png';	
-		this.sprite = new Sprite(flappyBirdImage, 85, 60);
+		this.sprite = new Sprite(flappyBirdImage, 51, 36);
 		
 		this.x = 0.0;
 		this.y = canvas.height / 2.0;
 		this.angle = 0.0;
-		this.speedX = 2.0;
+		this.speedX = 1.5;
 		
-		this.speedY = -5.0;
+		this.speedY = -3.5;
 		this.velocityY = this.speedY;
 		this.accelerationY = 0.078;
+		
+		this.obb = new OrientedBoundingBox(this.x, this.y, 50, 25, this.angle);		
 	}
 	
-	FlappyBird.prototype.update = function(elapsedTime)
+	FlappyBird.prototype.update = function(elapsedTime, walls)
 	{	
 		this.x += this.speedX;		
 		this.y += this.velocityY;		
 		this.velocityY += this.accelerationY;
 		
 		this.angle = this.velocityY * 0.1;
+		this.obb.update(this.x, this.y, this.angle);
+		
+		if(this.obb.collidesWithScenario(0, canvas.height))
+			reset();		
+			
+		for(var wallIndex in walls)			
+			if(this.obb.collidesWith(walls[wallIndex].aabbA) || this.obb.collidesWith(walls[wallIndex].aabbB))
+				reset();
 	}
 	
 	FlappyBird.prototype.flap = function()
@@ -104,114 +263,79 @@
 	
 	FlappyBird.prototype.draw = function(context)
 	{
-		this.sprite.draw(context, this.x + 50.0, this.y, this.angle);
-	}
-	
-	
-	function OrientedBoundingBox(x, y, width, height, angle)
-	{
-		this.halfWidth = width * 0.5;
-		this.halfHeight = height * 0.5;
-		
-		this.x = x;
-		this.y = y;
-		
-		this.angle = angle;
-	}
-	
-	OrientedBoundingBox.prototype.calculatePoints = function()	
-	{
-		var top = y + this.halfWidth;
-		var bottom = y - this.halfWidth;
-		var right = x + this.halfWidth;
-		var left = x - this.halfWidth;
-		this.points = 
-		[
-			[top, left],
-			[top, right],
-			[bottom, left],
-			[bottom, right],
-		];
-	}
-	
-	OrientedBoundingBox.prototype.rotate = function()	
-	{
-		var cosA = cos(this.angle);
-		var sinA = sin(this.angle);
-		
-		this.points.forEach(function(point)
-		{
-			point[0] = point[0] * cosA - point[1] * sinA;
-			point[1] = point[0] * sinA + point[1] * cosA;
-		});		
-	}
-	
-	OrientedBoundingBox.prototype.update = function(x, y, angle)	
-	{
-		this.angle = angle;
-		this.calculatePoints();
-		this.rotate();
-	}
-	
-	OrientedBoundingBox.prototype.collidesWith = function(aabb)			
-	{
-		for (var point in this.points)
-		{
-			if(point[0] > aabb.min[0] && point[1] > aabb.min[0] && point[1] < aabb.max[0] && point[1] < aabb.max[1])
-				return true;
-		}
-		return false;
-	}
-	
-	
-	function AxisAlignedBoundingBox(x, y, width, height)
-	{
-		var halfWidth = width * 0.5;
-		var halfHeight = height * 0.5;
-		this.min = [x - halfWidth, y - halfHeight];
-		this.max = [x + halfWidth, y + halfHeight];
+		this.sprite.draw(context, this.x, this.y, this.angle);
+		this.obb.draw(context, "red");
 	}
 	
 	
 	
-	
-	function Wall(height)
-	{
 
-
-		if(Wall.topSprite == undefined)
+	var halfWallSpacing = 100;
+	
+	class Wall
+	{
+		constructor(startX)
 		{
-			var pipeTopImage = new Image();
-			pipeTopImage.src = imgPath +  'pipetop.png';
-			Wall.topSprite = new Sprite(pipeTopImage, 72, 400);
+			if(Wall.topSprite == undefined)
+			{
+				var pipeTopImage = new Image();
+				pipeTopImage.src = imgPath +  'pipetop.png';
+				Wall.topSprite = new Sprite(pipeTopImage, 40, 19);
+				
+				var pipeLengthImage = new Image();
+				pipeLengthImage.src = imgPath + 'pipeLength.png';
+				Wall.lengthSprite = new Sprite(pipeLengthImage, 38, 500);			
+			}
 			
-			pipeLengthImage = new Image();
-			pipeLengthImage.src = imgPath + 'pipeLength.png';
-			Wall.lengthSprite = new Sprite(pipeLengthImage, 72, 500);			
+			this.x = startX;			
+			this.angle = 0.0;			
+			this.generateRandom();
+		}
+	
+		generateRandom()
+		{			
+			var randomHeight = randomNumber(halfWallSpacing, canvas.height - halfWallSpacing);
+			this.minHeight = randomHeight - halfWallSpacing;
+			this.maxHeight = randomHeight + halfWallSpacing;
+			
+			this.aabbA = AxisAlignedBoundingBox.fromMinMax([this.x - 20, 0], [this.x + 20, this.minHeight]);
+			this.aabbB = AxisAlignedBoundingBox.fromMinMax([this.x - 20, this.maxHeight], [this.x + 20, canvas.height]);	
+		}
+	
+		update(elapsedTime, flappyBird)
+		{
+			if((this.x + 50) < flappyBird.x)
+			{
+				score++;
+				this.x += canvas.width;		
+				this.generate();				
+			}
+		}
+			
+		generate()
+		{
+			this.aabbA.updateX(this.x);
+			this.aabbB.updateX(this.x);
+			this.generateRandom();
 		}
 		
-		this.x = 100.0;
-		this.y = 0;
-		this.angle = 0.0;
+		draw(context)
+		{	
+			Wall.lengthSprite.drawWithHeight(context, this.x, (this.minHeight - 19) * 0.5, 0, this.minHeight);
+			Wall.topSprite.drawFlipped(context, this.x, this.minHeight - 9.5, Math.PI);
+					
+			Wall.lengthSprite.drawWithHeight(context, this.x, this.maxHeight + (canvas.height - this.maxHeight) * 0.5, 0, (canvas.height - this.maxHeight));
+			Wall.topSprite.draw(context, this.x, this.maxHeight + 9.5);
+			
+			this.aabbA.draw(context, "red");
+			this.aabbB.draw(context, "green");			
+		}
 	}
-		
-	Wall.prototype.draw = function(context)
+	
+	function randomNumber(min, max) 
 	{
-		Wall.topSprite.draw(context, this.x +5, 700);
-		Wall.lengthSprite.draw(context, this.x +5, 0);
-
+		return Math.random() * (max - min) + min;
 	}
-
-	Wall.prototype.update = function(elapsedTime)
-	{
-		this.x = this.x - 1
-	}
-	
-	
-	
-	
-	
-	
 	
 	
 	function Background()
@@ -220,14 +344,9 @@
 		backgroundImage.src = imgPath + 'background.png';	
 		this.sprite = new Sprite(backgroundImage, canvas.width, canvas.height);
 		
-		this.x = 0.0;
+		this.x = canvas.width / 2.0;
 		this.y = canvas.height / 2.0;
 		this.angle = 0.0;	
-	}
-	
-	Background.prototype.update = function()
-	{
-		this.x = flappyBird.x + canvas.width * 0.5;
 	}
 	
 	Background.prototype.draw = function(context)
@@ -254,7 +373,93 @@
 		context.restore();		
 	};	
 		
+		
+	Sprite.prototype.drawFlipped = function(context, x, y, angle)
+	{
+		context.save();
+		context.translate(x, y);
+		context.rotate(angle);
+		context.scale(-1, 1);
+		context.drawImage(this.image, -this.halfWidth, -this.halfHeight, this.width, this.height);
+		context.restore();		
+	};	
 	
+		
+	Sprite.prototype.drawWithHeight = function(context, x, y, angle, height)
+	{
+		context.save();
+		context.translate(x, y);
+		context.rotate(angle);
+		context.drawImage(this.image, -this.halfWidth, -height * 0.5, this.width, height);
+		context.restore();		
+	};	
+	
+	var canvas = document.getElementById("canvas");
+	var context = canvas.getContext("2d");
+	var drawBounding = false;
+	
+	var imgPath = 'img/';	
+	context.imageSmoothingEnabled = false;
+	
+	var flappyBird = null;
+	var background = null;
+	var wallA = null;
+	var wallB = null;
+	var delta = 0.0;
+	var last = 0.0;
+	var score = 0;
+	
+	Math.seed = function(s) 
+	{
+		return function() {
+			s = Math.sin(s) * 10000; return s - Math.floor(s);
+		};
+	};
+
+	function setUp()
+	{			
+		flappyBird = new FlappyBird();
+		background = new Background();
+		wallA = new Wall(canvas.width);
+		wallB = new Wall(canvas.width * 1.5);
+			// usage:
+		Math.random = Math.seed(42);
+		
+	}
+	
+	function reset()
+	{
+		// usage:
+		Math.random = Math.seed(42);
+	
+	
+		flappyBird = new FlappyBird();
+		wallA.x = canvas.width;
+		wallB.x = canvas.width * 1.5;
+		wallA.generate();
+		wallB.generate();
+		score = 0;
+	}
+	
+	
+	
+	
+	
+	
+	canvas.addEventListener("click", function( event ) {
+		flappyBird.flap();
+	}, false);
+	
+		
+	document.body.onkeyup = function(event)
+	{
+		if(event.keyCode == 32)		
+			flappyBird.flap();
+		else if(event.key == 'j')
+			drawBounding = !drawBounding;		
+	};
+	
+	setUp();
 	loop();
 </script>
 
