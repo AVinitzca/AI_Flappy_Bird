@@ -1,29 +1,39 @@
 class Network
 {
-	constructor(neuron)
+	constructor(layers)
 	{
-		this.neuron = neuron;
+		this.layers = layers;
 	}
 
 	lerp(network, factor)
-	{
-		var neuron = this.neuron.lerp(network.neuron, factor);
-		return new Network(neuron);
+	{		
+		var layers = [];
+		for(var index = 0; index < this.layers.length; index++)
+			layers.push(this.layers[index].lerp(network.layers[index], factor));
+		
+		return new Network(layers);
 	}
 		
-	mutate(mutationFactor)
+	mutate(rate, factor)
 	{
-		this.neuron.mutate(mutationFactor);
+		this.layers.forEach(l => l.mutate(rate, factor));
 	}
 	
 	clone()
 	{
-		return new Network(this.neuron.clone());
+		var clonedLayers = this.layers.map(l => l.clone());
+		return new Network(clonedLayers);
 	}
 	
 	output(input)
 	{
-		return this.neuron.output(input);
+		var values = input;
+		for(var index = 0; index < this.layers.length; index++)
+		{
+			values = this.layers[index].output(values);
+		}
+		
+		return values[0];
 	}
 
 }

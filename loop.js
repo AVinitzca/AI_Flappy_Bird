@@ -29,8 +29,8 @@ class Loop
 		var scores = [];
 		for(var index = 0; index < Config.population; index++)
 		{
-			average += chromosomes[index].score;
-			scores.push(chromosomes[index].score);
+			average += this.chromosomes[index].score;
+			scores.push(this.chromosomes[index].score);
 		}
 		
 		average /= Config.population;
@@ -38,18 +38,14 @@ class Loop
 		var passFilter = scores.map((score) => Math.floor(score / average));
 		var belowFilter = scores.map((score) => score % average);
 		
-		
-		var maxPassed = Math.floor(Config.elitism * Config.population);
-		var belowElitism = true;
-		for(var index = 0; index < Config.population && belowElitism; index++)
+		this.firstGenerated = 0;
+		for(var index = 0; index < Config.population; index++)
 		{			
-			for(var subIndex = 0; subIndex < passFilter[index] && belowElitism; subIndex++)
+			for(var subIndex = 0; subIndex < passFilter[index]; subIndex++)
 			{
 				// Clone
-				this.nextGeneration.push(this.chromosomes[index].clone());
-				maxPassed--;
-				if(maxPassed == 0)
-					belowElitism = false;
+				this.nextGeneration.push(this.chromosomes[index].clone());						
+				this.firstGenerated++;
 			}
 		}
 	}
@@ -72,10 +68,10 @@ class Loop
 	mutate()
 	{		
 		
-		for(var index = Math.floor(Config.elitism * Config.population); index < Config.population; index++)
+		for(var index = this.firstGenerated; index < Config.population; index++)
 		{
 			var chromosome = this.nextGeneration[index];
-			chromosome.mutate(Config.mutationFactor);
+			chromosome.mutate(Config.mutationRate, Config.mutationFactor);
 		}
 	}
 

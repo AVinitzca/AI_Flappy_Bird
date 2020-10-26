@@ -1,7 +1,7 @@
 var Config = 
 {
-	population: 20,
-	elitism: 0.5,
+	population: 40,
+	mutationRate: 0.2,
 	mutationFactor: 0.01,
 	fitnessMode: 1,
 };

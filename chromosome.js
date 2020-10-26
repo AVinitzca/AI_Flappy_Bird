@@ -20,8 +20,8 @@ class Chromosome
 		return new Chromosome(this.network.clone());
 	}
 	
-	mutate()
+	mutate(rate, factor)
 	{
-		this.network.mutate(Config.mutationFactor);
+		this.network.mutate(rate, factor);
 	}
 }
